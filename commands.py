@@ -2,6 +2,10 @@
 import re
 from state import *
 
+# Syntax: no arguments
+def END(statement, lineno):
+    exit(0)     # TODO throw exception to return to REPL
+
 # Syntax: FOR var=start TO finish [STEP n]
 def FOR(statement, lineno):
     parts = re.split(" |=", statement)
@@ -74,8 +78,6 @@ def PRINT(statement, lineno):
     for (i,part) in enumerate(parts):
         if len(part) == 0:
             pass
-        elif part.startswith("TAB("):
-            print("TODO print " + part)
         elif part.startswith("\""):
             parts[i] = part[1:-1]
         else:
@@ -94,6 +96,7 @@ def RETURN(statement, lineno):
 
 def makeCommands():
     return {
+        "END": END,
         "FOR": FOR,
         "GOSUB": GOSUB,
         "GOTO": GOTO,

@@ -3,7 +3,7 @@ from functions import makeFunctions
 from commands import makeCommands
 
 if __name__ == '__main__':
-    filename = "batnum.bas"
+    filename = "sinewave.bas"
     with open("programs/" + filename, "r") as file: program = file.read()
     initialize(makeFunctions(), makeCommands())
     readProgram(program)

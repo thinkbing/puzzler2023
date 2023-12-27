@@ -1,5 +1,6 @@
 # BASIC built-in functions
 from random import random, seed
+from math import sin
 
 # ABS: absolute value of number
 def ABS(val):
@@ -16,6 +17,10 @@ def RND(val):
     if val < 0: seed(val)
     return random()
 
+# SIN: sine of argument
+def SIN(val):
+    return sin(val)
+
 # TAB: space n characters
 def TAB(val):
     return ' '*val
@@ -25,5 +30,6 @@ def makeFunctions():
         "ABS": ABS,
         "INT": INT,
         "RND": RND,
+        "SIN": SIN,
         "TAB": TAB
     }

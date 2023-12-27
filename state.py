@@ -41,6 +41,8 @@ def assignVar(variable, value):
 
 def execStatement(statement, lineno):
 
+    if statement.startswith("REM"): return # No spaces etc. required after "REM"
+
     match = re.match("[A-Z]+", statement)
     if not match:
         syntaxError(statement)
@@ -65,10 +67,10 @@ def splitStatements(line):
     for (i,c) in enumerate(line):
         if c == '"': quote = not quote
         if c == ':' and not quote:
-            statements.append(line[start:i])
+            statements.append(line[start:i].strip())
             start = i+1
     if start < len(line):
-        statements.append(line[start:])
+        statements.append(line[start:].strip())
     return statements
 
 def lineIndex(linenum):
