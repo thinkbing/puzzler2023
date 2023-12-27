@@ -7,4 +7,4 @@ if __name__ == '__main__':
     with open("programs/" + filename, "r") as file: program = file.read()
     initialize(makeFunctions(), makeCommands())
     readProgram(program)
-    execProgram(0)
+    execProgram(None)
