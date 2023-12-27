@@ -2,6 +2,24 @@
 import re
 from state import *
 
+# Syntax: DATA value[,value...] (handled when reading program)
+def DATA(statement, lineno):
+    pass
+
+# List subclass that works with BASIC syntax for subscripting with parentheses
+class BasicArray(list):
+    def __call__(self, value): return self[value]
+
+# Syntax: arrayname[size[,size...]]
+def DIM(statement, lineno):
+    parts = re.split(",", statement)
+    for part in parts:
+        variable = part[0:part.find('(')]
+        size = int(part[part.find('(')+1:-1]) + 1   # TODO not sure about that +1...
+        value = [0]*size
+        assignVar(variable, BasicArray(value))
+    # TODO if len(parts) > 2: syntaxError("MULTI-DIMENSIONAL ARRAYS NOT SUPPORTED")
+
 # Syntax: no arguments
 def END(statement, lineno):
     exit(0)     # TODO throw exception to return to REPL
@@ -58,11 +76,26 @@ def INPUT(statement, lineno):
         assignVar(part, val)
     return None
 
+# Syntax: ON variable GOTO lineno[,lineno,...]
+# Variable is one-based
+def ON(statement, lineno):
+    parts = re.split(" |,", statement)
+    if not parts[1] == "GOTO": syntaxError("INCORRECT ON...GOTO SYNTAX")
+    variable = parts[0]
+    value = evalExpr(variable)
+    parts = parts[2:]
+    if value <= 0 or value > len(parts): return None # Don't GOTO anywhere
+    return int(parts[value-1])
+
 # Syntax: NEXT [variable]
 def NEXT(statement, lineno):
-    if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
-    (loopline, variable, min, max, step) = forStack[-1]
-    if len(statement) > 0 and statement != variable: syntaxError("INCORRECT LOOP NESTING")
+
+    while True:
+        if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
+        (loopline, variable, min, max, step) = forStack[-1]
+        if len(statement) == 0 or statement == variable: break
+        forStack.pop() # Technically not supposed to have unterminated loops, but programs use them
+
     value = variables[variable]
     value = value + step
     if value <= max:
@@ -86,8 +119,21 @@ def PRINT(statement, lineno):
     print(*parts, end=ending)
     return None
 
+def READ(statement, lineno):
+    global dataIndex
+    parts = statement.split(',')
+    for part in parts:
+        if dataIndex >= len(dataList): syntaxError("OUT OF DATA ERROR")
+        value = dataList[dataIndex]
+        assignVar(part.strip(), value)
+        dataIndex = dataIndex + 1
+
 def REM(statement, lineno):
     pass
+
+def RESTORE(statement, lineno):
+    global dataIndex
+    dataIndex = 0
 
 def RETURN(statement, lineno):
     if len(gosubStack) == 0: syntaxError("RETURN WITHOUT GOSUB")
@@ -96,6 +142,8 @@ def RETURN(statement, lineno):
 
 def makeCommands():
     return {
+        "DATA": DATA,
+        "DIM": DIM,
         "END": END,
         "FOR": FOR,
         "GOSUB": GOSUB,
@@ -103,7 +151,10 @@ def makeCommands():
         "IF": IF,
         "INPUT": INPUT,
         "NEXT": NEXT,
+        "ON": ON,
         "PRINT": PRINT,
+        "READ": READ,
         "REM": REM,
+        "RESTORE": RESTORE,
         "RETURN": RETURN
     }

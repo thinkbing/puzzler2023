@@ -7,7 +7,9 @@ progLines = []
 variables = {}
 gosubStack = []
 forStack = []
-trace = False
+dataList = []
+dataIndex = 0
+trace = True
 
 
 def right(text, after):
@@ -27,6 +29,9 @@ def evalExpr(expr):
     expr = expr.replace("<<", "<=")
     expr = expr.replace("<>", "!=")
 
+    # Convert variable names and functions ending in "$" to "_"
+    expr = re.sub(r"([A-Z]+)(\$)", r"\1_", expr)
+
     globals = functions
     locals = variables
     try:
@@ -36,17 +41,31 @@ def evalExpr(expr):
         syntaxError(str(err))
 
 def assignVar(variable, value):
-    variables[variable] = value
+    if re.match(r"[A-Z}+[0-9]*\(.*\)", variable):
+        start = variable.find('(')
+        arrayName = variable[0:start]
+        arrayName = arrayName.replace("$", "_")
+        arrayIndex = variable[start+1:-1]
+        if arrayName not in variables: syntaxError("UNKNOWN ARRAY " + variable)
+        arrayVar = variables[arrayName]
+        arrayIndex = evalExpr(arrayIndex)
+        arrayVar[arrayIndex] = value
+    else:
+        variable = variable.replace("$", "_")
+        variables[variable] = value
     if trace: print(variables)
 
 def execStatement(statement, lineno):
 
     if statement.startswith("REM"): return # No spaces etc. required after "REM"
 
-    match = re.match("[A-Z]+", statement)
+    # Match variable or command
+    match = re.match("[A-Z]+[0-9]*", statement)
     if not match:
         syntaxError(statement)
     word = match.group()
+    if len(statement) > len(word) and statement[len(word)] == '(':
+        word = statement[0:statement.find('=')]
     remain = right(statement, word)
 
     if len(remain) > 0 and statement[len(word)] == '=':
@@ -104,6 +123,18 @@ def execProgram(linenum):
             if index >= len(progLines): break # Fall off end
             linenum = progLines[index+1][0]
 
+def addData(data):
+    data = data[4:].strip()
+    parts = data.split(",")
+    for part in parts:
+        if len(part) == 0: continue
+        if part[0] == '"':
+            dataList.append(part[1:-1])
+        elif '.' in part:
+            dataList.append(float(part))
+        else:
+            dataList.append(int(part))
+
 def readProgram(progText):
     lines = progText.splitlines()
     for line in lines:
@@ -111,7 +142,9 @@ def readProgram(progText):
         match = re.match("[0-9]+", line)
         if not match: syntaxError(line)
         linenum = int(match.group())
-        progLines.append((linenum, right(line, match.group())))
+        statements = right(line, match.group())
+        progLines.append((linenum, statements))
+        if statements.startswith("DATA"): addData(statements)
 
 def initialize(fns, cmds):
     global functions, commands
