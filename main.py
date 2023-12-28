@@ -1,14 +1,11 @@
-from state import readProgram, execProgram, initialize
+from state import initialize, repl
 from functions import makeFunctions
 from commands import makeCommands
 
-if __name__ == '__main__':
-    filename = "craps.bas"
-    with open("programs/" + filename, "r") as file: program = file.read()
-    initialize(makeFunctions(), makeCommands())
-    readProgram(program)
-    execProgram(None)
 
+if __name__ == '__main__':
+    initialize(makeFunctions(), makeCommands())
+    repl()
 
 # TODOs
 # Printing tweaks (newlines, ";" handling, etc.)

@@ -22,7 +22,7 @@ def DIM(statement, lineno):
 
 # Syntax: no arguments
 def END(statement, lineno):
-    exit(0)     # TODO throw exception to return to REPL
+    pass    # Caller will detect "END" and terminate execution loop
 
 # Syntax: FOR var=start TO finish [STEP n]
 def FOR(statement, lineno):
@@ -79,6 +79,29 @@ def INPUT(statement, lineno):
                 val = int(val)
         assignVar(part, val)
     return None
+
+# Syntax: LIST [from-line]
+# Can't be used in deferred mode
+def LIST(statement, lineno):
+    if lineno: syntaxError("LIST ONLY SUPPORTED FOR IMMEDIATE MODE")
+    startLine = statement
+    for (linenum, statements) in progLines:
+        if len(startLine) and int(startLine) > linenum: continue
+        print(f"{linenum} {statements}")
+
+# Syntax: LOAD filename
+# Can't be used in deferred mode
+def LOAD(statement, lineno):
+    if lineno: syntaxError("LOAD ONLY SUPPORTED FOR IMMEDIATE MODE")
+    clearProgram()
+    with open("programs/" + statement, "r") as file:
+        for line in file:
+            line = line.rstrip()
+            if len(line) == 0: continue
+            (linenum, statements) = parseLine(line)
+            if not linenum: syntaxError("LINE NUMBER NOT FOUND: " + line)
+            storeLine(linenum, statements)
+    print(f"LOADED {len(progLines)} LINES")
 
 # Syntax: ON variable GOTO lineno[,lineno,...]
 # Variable is one-based
@@ -144,21 +167,14 @@ def RETURN(statement, lineno):
     frame = gosubStack.pop()
     return frame
 
+def RUN(statement, lineno):
+    if lineno: syntaxError("LOAD ONLY SUPPORTED FOR IMMEDIATE MODE")
+    startLine = int(statement) if len(statement) else None
+    execProgram(startLine)
+
+import inspect, sys
 def makeCommands():
-    return {
-        "DATA": DATA,
-        "DIM": DIM,
-        "END": END,
-        "FOR": FOR,
-        "GOSUB": GOSUB,
-        "GOTO": GOTO,
-        "IF": IF,
-        "INPUT": INPUT,
-        "NEXT": NEXT,
-        "ON": ON,
-        "PRINT": PRINT,
-        "READ": READ,
-        "REM": REM,
-        "RESTORE": RESTORE,
-        "RETURN": RETURN
-    }
+    # Auto-generate command map from member functions in UPPERCASE
+    members = inspect.getmembers(sys.modules[__name__])
+    commands = {name:obj for name, obj in members if inspect.isfunction(obj) and name.upper() == name}
+    return commands

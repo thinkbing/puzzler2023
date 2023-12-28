@@ -1,5 +1,6 @@
 # Program state management
 import re
+from bisect import insort
 
 functions = {}
 commands = {}
@@ -63,7 +64,7 @@ def execStatement(statement, lineno):
     if statement.startswith("REM"): return # No spaces etc. required after "REM"
 
     # Match variable or command
-    match = re.match("[A-Z]+[0-9]*", statement)
+    match = re.match("[A-Z]+[0-9]*\$?", statement)
     if not match:
         syntaxError(statement)
     word = match.group()
@@ -124,32 +125,62 @@ def execProgram(linenum):
             linenum = nextLinenum
         else:
             if index >= len(progLines): break # Fall off end
+            if statement == "END": break
             linenum = progLines[index+1][0]
 
-def addData(data):
-    data = data[4:].strip()
-    parts = data.split(",")
-    for part in parts:
-        if len(part) == 0: continue
-        if part[0] == '"':
-            dataList.append(part[1:-1])
-        elif '.' in part:
-            dataList.append(float(part))
-        else:
-            dataList.append(int(part))
-
-def readProgram(progText):
-    lines = progText.splitlines()
-    for line in lines:
-        if len(line) == 0: continue
-        match = re.match("[0-9]+", line)
-        if not match: syntaxError(line)
-        linenum = int(match.group())
-        statements = right(line, match.group())
-        progLines.append((linenum, statements))
-        if statements.startswith("DATA"): addData(statements)
 
 def initialize(fns, cmds):
     global functions, commands
     functions = fns
     commands = cmds
+
+
+def clearProgram():
+    progLines = []
+    variables = {}
+    gosubStack = []
+    forStack = []
+    dataList = []
+    dataIndex = 0
+
+
+def parseLine(line):
+    match = re.match("[0-9]+", line)
+    if not match: return (None, line)
+    linenum = int(match.group())
+    statements = right(line, match.group())
+    return (linenum, statements)
+
+
+def storeLine(linenum, statements):
+
+    # Remove existing line and pseudo-lines, if any
+    existing = [i for (i,l) in enumerate(progLines) if int(l[0]) == linenum]
+    for i in reversed(existing): del progLines[i]
+
+    # Insert in order
+    insort(progLines, (linenum, statements))
+
+    # Add DATA elements immediated
+    if statements.startswith("DATA"):
+        data = statements[4:].strip()
+        parts = data.split(",")
+        for part in parts:
+            if len(part) == 0: continue
+            if part[0] == '"':
+                dataList.append(part[1:-1])
+            elif '.' in part:
+                dataList.append(float(part))
+            else:
+                dataList.append(int(part))
+
+
+def repl():
+    while True:
+        line = input("] ")
+        (linenum, statements) = parseLine(line)
+        if linenum:
+            storeLine(linenum, statements)
+        else:
+            # TODO split statements etc. first
+            execStatement(statements, linenum)
