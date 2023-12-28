@@ -80,28 +80,35 @@ def INPUT(statement, lineno):
         assignVar(part, val)
     return None
 
-# Syntax: LIST [from-line]
+# Syntax: LIST [fromline[,toline]]
 # Can't be used in deferred mode
+from itertools import groupby
 def LIST(statement, lineno):
     if lineno: syntaxError("LIST ONLY SUPPORTED FOR IMMEDIATE MODE")
-    startLine = statement
-    for (linenum, statements) in progLines:
-        if len(startLine) and int(startLine) > linenum: continue
-        print(f"{linenum} {statements}")
+    parts = re.split("[\,\-]", statement)
+    startLine = int(parts[0]) if len(statement) > 0 else -1
+    endLine = int(parts[1]) if len(parts) > 1 else 999999
+    for (linenum, group) in groupby(progLines, lambda v: int(v[0])):
+        if linenum < startLine or linenum > endLine: continue
+        print(f"{int(linenum)} ", end="")
+        print(*[v[1] for v in group], sep=":")
+
 
 # Syntax: LOAD filename
 # Can't be used in deferred mode
 def LOAD(statement, lineno):
     if lineno: syntaxError("LOAD ONLY SUPPORTED FOR IMMEDIATE MODE")
     clearProgram()
+    count = 0
     with open("programs/" + statement, "r") as file:
         for line in file:
             line = line.rstrip()
             if len(line) == 0: continue
-            (linenum, statements) = parseLine(line)
-            if not linenum: syntaxError("LINE NUMBER NOT FOUND: " + line)
-            storeLine(linenum, statements)
-    print(f"LOADED {len(progLines)} LINES")
+            for (linenum, statements) in parseLine(line):
+                if not linenum: syntaxError("LINE NUMBER NOT FOUND: " + line)
+                storeLine(linenum, statements)
+            count = count + 1
+    print(f"LOADED {count} LINES")
 
 # Syntax: ON variable GOTO lineno[,lineno,...]
 # Variable is one-based
