@@ -45,7 +45,7 @@ def SIN(val):
 
 # TAB: space n characters
 def TAB(val):
-    return ' '*val
+    return ' '*int(val)
 
 def makeFunctions():
     return {

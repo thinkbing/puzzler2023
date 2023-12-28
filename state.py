@@ -9,7 +9,7 @@ gosubStack = []
 forStack = []
 dataList = []
 dataIndex = 0
-trace = True
+trace = False
 
 
 def right(text, after):
@@ -28,6 +28,9 @@ def evalExpr(expr):
     expr = expr.replace(">>", ">=")
     expr = expr.replace("<<", "<=")
     expr = expr.replace("<>", "!=")
+
+    # Exponentiation
+    expr = expr.replace("^", "**")
 
     # Convert variable names and functions ending in "$" to "_"
     expr = re.sub(r"([A-Z]+)(\$)", r"\1_", expr)

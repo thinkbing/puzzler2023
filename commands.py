@@ -72,7 +72,11 @@ def INPUT(statement, lineno):
     parts = statement.split(",")
     for part in parts:
         val = input()
-        if part[-1] != '$': val = int(val)  # TODO could be float
+        if part[-1] != '$':
+            if '.' in val:
+                val = float(val)
+            else:
+                val = int(val)
         assignVar(part, val)
     return None
 
