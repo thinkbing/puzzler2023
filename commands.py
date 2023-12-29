@@ -50,17 +50,24 @@ def GOTO(statement, lineno):
 
 # Syntax: IF expr THEN [lineno | statement]
 def IF(statement, lineno):
-    i = statement.find("THEN");
+
+    i = statement.find("THEN")
     if i == -1: syntaxError("IF WITHOUT THEN")
-    expr = statement[:i-1]
+    expr = statement[:i]
     result = evalExpr(expr)
-    if not result: return None
+
+    # If false, skip any statements from the same line
+    # (i.e., go to the next whole-numbered line)
+    if not result:
+        return nextLine(lineno, wholeLine=True)
+
+    # THEN will be followed by a line number (implicit GOTO) or one or more statements
     statement = statement[i + 5:]
     match = re.match("[0-9]+", statement)
     if match:
-        return int(match.group())
+        return int(match.group())   # Jump to numbered statement
     else:
-        return execStatement(statement)
+        return None # Proceed to statement(s) following IF
 
 # Syntax: INPUT ["message";]var[,...]]
 def INPUT(statement, lineno):
@@ -121,27 +128,31 @@ def ON(statement, lineno):
     if value <= 0 or value > len(parts): return None # Don't GOTO anywhere
     return int(parts[value-1])
 
-# Syntax: NEXT [variable]
+# Syntax: NEXT [variable][,variable...]
 def NEXT(statement, lineno):
+    nexts = statement.split(",") if len(statement) > 0 else [None]
+    for nextVar in nexts:
+        while True:
+            if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
+            (loopline, variable, min, max, step) = forStack[-1]
+            if nextVar is None or nextVar == variable: break
+            forStack.pop() # Technically shouldn't happen, but does?
+        value = variables[variable]
+        value = value + step
+        if value <= max:
+            assignVar(variable, value)
+            return loopline
+        else:
+            forStack.pop()
+    return None
 
-    while True:
-        if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
-        (loopline, variable, min, max, step) = forStack[-1]
-        if len(statement) == 0 or statement == variable: break
-        forStack.pop() # Technically not supposed to have unterminated loops, but programs use them
-
-    value = variables[variable]
-    value = value + step
-    if value <= max:
-        assignVar(variable, value)
-        return loopline
-    else:
-        forStack.pop()
-        return None
+def NOTRACE(statement, lineno):
+    global trace
+    trace = False
 
 # Syntax: PRINT ["message"|expr][;...]
 def PRINT(statement, lineno):
-    parts = statement.split(";")
+    parts = splitUnquoted(",;", statement)
     for (i,part) in enumerate(parts):
         if len(part) == 0:
             pass
@@ -149,7 +160,7 @@ def PRINT(statement, lineno):
             parts[i] = part[1:-1]
         else:
             parts[i] = evalExpr(part)
-    ending = "" if len(statement) > 0 and statement[-1] == ';' else None
+    ending = "" if len(statement) > 0 and statement[-1] in ',;' else None
     print(*parts, end=ending)
     return None
 
@@ -178,6 +189,10 @@ def RUN(statement, lineno):
     if lineno: syntaxError("LOAD ONLY SUPPORTED FOR IMMEDIATE MODE")
     startLine = int(statement) if len(statement) else None
     execProgram(startLine)
+
+def TRACE(statement, lineno):
+    global trace
+    trace = True
 
 import inspect, sys
 def makeCommands():

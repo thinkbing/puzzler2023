@@ -14,23 +14,23 @@ trace = False
 
 
 def right(text, after):
-    return text[len(after) + 1:].lstrip()
+    return text[len(after):].lstrip()
 
 def syntaxError(message):
     raise Exception("?SYNTAX ERROR: " + message)
 
 def evalExpr(expr):
 
-    # Hacks to change "=" to "==" and "<>" to "!="
-    expr = expr.replace(">=", ">>")
-    expr = expr.replace("<=", "<<")
-    expr = expr.replace("=",  "==")
-    expr = expr.replace(">>", ">=")
-    expr = expr.replace("<<", "<=")
+    # Replace = with == (but preserve <= and >=), and <> with !=
+    expr = re.sub(r"([^<>])\=", r"\1==", expr)
     expr = expr.replace("<>", "!=")
 
     # Exponentiation
     expr = expr.replace("^", "**")
+
+    # AND/OR to and/or
+    expr = re.sub(r"(\W)(AND)(\W)", r"\1and\3", expr)
+    expr = re.sub(r"(\W)(OR)(\W)", r"\1or\3", expr)
 
     # Convert variable names and functions ending in "$" to "_"
     expr = re.sub(r"([A-Z]+[0-9]*)(\$)", r"\1_", expr)
@@ -44,7 +44,8 @@ def evalExpr(expr):
         syntaxError(str(err))
 
 def assignVar(variable, value):
-    if re.match(r"[A-Z}+[0-9]*\(.*\)", variable):
+    if re.match(r"[A-Z]+[0-9]*\$?\(.*\)", variable):
+        # Assignment to array variable
         start = variable.find('(')
         arrayName = variable[0:start]
         arrayName = arrayName.replace("$", "_")
@@ -54,6 +55,7 @@ def assignVar(variable, value):
         arrayIndex = evalExpr(arrayIndex)
         arrayVar[arrayIndex] = value
     else:
+        # Assignment to regular variable
         variable = variable.replace("$", "_")
         variables[variable] = value
     if trace: print(variables)
@@ -71,9 +73,9 @@ def execStatement(statement, lineno):
         word = statement[0:statement.find('=')]
     remain = right(statement, word)
 
-    if len(remain) > 0 and statement[len(word)] == '=':
+    if len(remain) > 0 and remain[0] == '=':
         # variable=value: assign it
-        assignVar(word, evalExpr(remain))
+        assignVar(word, evalExpr(remain[1:]))
         return None
     elif word in commands:
         # Valid command: execute it
@@ -84,13 +86,25 @@ def execStatement(statement, lineno):
         print(evalExpr(word))
 
 
+# Helpers
 def lineIndex(linenum):
     return next(i for (i,l) in enumerate(progLines) if l[0] == linenum)
 
-def nextLine(linenum):
-    index = lineIndex(linenum)
-    return progLines[index+1][0]
+def nextLine(linenum, wholeLine=False):
+    index = lineIndex(linenum) + 1
+    while wholeLine and int(progLines[index][0]) == linenum:
+        index = index + 1
+    return progLines[index][0]
 
+def splitUnquoted(delimiters, text):
+    quotes = 0
+    lst = list(text)
+    for i in range(len(lst)):
+        if lst[i] == '"': quotes = quotes+1
+        if lst[i] in delimiters and quotes%2 == 1: lst[i] = '•'
+    text = "".join(lst)
+    parts = re.split("[" + delimiters + "]", text)
+    return [part.strip().replace("•",":") for part in parts]
 
 # Execute a series of lines from the specified index.
 def execProgram(linenum):
@@ -142,13 +156,9 @@ def parseLine(line):
 
     # Parse statements, assigning fractional line number for multi-statement lines
     if ':' not in line: return [(linenum, line)]
-    quotes = 0
-    line = list(line)
-    for i in range(len(line)):
-        if line[i] == '"': quotes = quotes+1
-        if line[i] == ':' and quotes%2 == 1: line[i] = '•'
-    statements = "".join(line).split(":")
-    return [(linenum + 0.1*i, s.strip().replace("•",":")) for (i,s) in enumerate(statements)]
+    if line.startswith("IF"): line = line.replace("THEN", "THEN:")
+    statements = splitUnquoted(":", line)
+    return [(linenum + 0.1*i, s) for (i,s) in enumerate(statements)]
 
 
 def storeLine(linenum, statement):
