@@ -81,9 +81,11 @@ def execStatement(statement, lineno):
         # Valid command: execute it
         command = commands[word]
         return command(right(statement, word), lineno)
-    else:
-        # Otherwise, attempt to evaluate it
+    elif not lineno:
+        # Otherwise, if in immediate mode attempt to evaluate it
         print(evalExpr(word))
+    else:
+        syntaxError(statement)
 
 
 # Helpers

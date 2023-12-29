@@ -13,11 +13,9 @@ if __name__ == '__main__':
 #       Store arrays with @ suffix (similar to strings) to avoid conflict
 # READ can create variables including arrays (bunny.bas)
 # LET statement
-# Compound statements after THEN should only execute if true
-#       Treat THEN num as "THEN GOTO num"
-#       Treat THEN as "THEN:" so everything after is micronumbered
-#       When THEN is false, skip to next whole-numbered line
-#       Otherwise fall through to execute the micronumbered statements
-#       When LISTing, replace "THEN GOTO" with just "THEN"
-#   In parseLine: replace "THEN" with "THEN:"
-#   Change IF logic to skip to next whole line if False (add parameter to nextLine)
+
+# Working programs:
+# batnum.bas
+# sinewave.bas
+# tictactoe1.bas
+# tictactoe2.bas - needs some print fixes, e.g. P$" "

@@ -6,6 +6,32 @@ from state import *
 def DATA(statement, lineno):
     pass
 
+
+# Function object used by DEF
+class BasicFunction():
+    def __init__(self, fvar, expr):
+        self.fvar = fvar
+        self.expr = expr
+    def __call__(self, value):
+        if self.fvar in variables: syntaxError(f"FUNCTION VARIABLE {self.fvar} ALREADY DEFINED")
+        variables[self.fvar] = value
+        result = evalExpr(self.expr)
+        del variables[self.fvar]
+        return result
+
+# Syntax: DEF function(variable)=expression
+# Technically "function" is "FN name" but it usually seems to be written "FNNAME"
+def DEF(statement, lineno):
+    if not statement.startswith("FN"): syntaxError("FUNCTION NAME MUST START WITH FN")
+    start = statement.find('(')
+    fname = statement[0:start]
+    end = statement.find(')')
+    fvar = statement[start+1:end]
+    start = statement.find('=')
+    expr = statement[start + 1:]
+    variables[fname] = BasicFunction(fvar, expr)
+
+
 # List subclass that works with BASIC syntax for subscripting with parentheses
 class BasicArray(list):
     def __call__(self, value): return self[value]
