@@ -102,15 +102,18 @@ def nextLine(linenum, wholeLine=False):
         index = index + 1
     return progLines[index][0]
 
-def splitUnquoted(delimiters, text):
-    quotes = 0
-    lst = list(text)
-    for i in range(len(lst)):
-        if lst[i] == '"': quotes = quotes+1
-        if lst[i] in delimiters and quotes%2 == 1: lst[i] = '•'
-    text = "".join(lst)
-    parts = re.split("[" + delimiters + "]", text)
-    return [part.strip().replace("•",":") for part in parts]
+def splitUnquoted(quotes, delimiters, text):
+    parts = []
+    inside = 0
+    start = 0
+    for i in range(len(text)):
+        if text[i] in quotes: inside = inside+1
+        if text[i] in delimiters and inside%2 == 0:
+            parts.append(text[start:i].strip())
+            start = i+1
+    if start < len(text):
+        parts.append(text[start:len(text)].strip())
+    return parts
 
 # Execute a series of lines from the specified index.
 def execProgram(linenum):
@@ -143,11 +146,12 @@ def initialize(fns, cmds):
 
 
 def clearProgram():
-    progLines = []
-    variables = {}
-    gosubStack = []
-    forStack = []
-    dataList = []
+    progLines.clear()
+    variables.clear()
+    gosubStack.clear()
+    forStack.clear()
+    dataList.clear()
+    global dataIndex
     dataIndex = 0
 
 
@@ -163,7 +167,7 @@ def parseLine(line):
     # Parse statements, assigning fractional line number for multi-statement lines
     if ':' not in line: return [(linenum, line)]
     if line.startswith("IF"): line = line.replace("THEN", "THEN:")
-    statements = splitUnquoted(":", line)
+    statements = splitUnquoted('"', ":", line)
     return [(linenum + 0.1*i, s) for (i,s) in enumerate(statements)]
 
 

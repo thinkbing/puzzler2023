@@ -163,10 +163,10 @@ def NEXT(statement, lineno):
             if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
             (loopline, variable, startVal, endVal, step) = forStack[-1]
             if nextVar is None or nextVar == variable: break
-            forStack.pop() # Technically shouldn't happen, but does?
+            forStack.pop()  # Can happen if we terminate an inner loop early by NEXTing the outer loop
         value = variables[variable]
         value = value + step
-        done = value > endVal if endVal > startVal else value < endVal
+        done = value > endVal if step > 0 else value < endVal
         if not done:
             assignVar(variable, value)
             return loopline
@@ -179,7 +179,16 @@ def NOTRACE(statement, lineno):
 
 # Syntax: PRINT ["message"|expr][;...]
 def PRINT(statement, lineno):
-    parts = splitUnquoted(",;", statement)
+
+    ending = None   # Default newline
+    if len(statement) == 0:
+        print()
+        return None
+    elif statement[-1] in ',;':
+        ending = ""
+        statement = statement[0:-1]
+
+    parts = splitUnquoted('"()', ",;", statement)
     for (i,part) in enumerate(parts):
         if len(part) == 0:
             pass
@@ -187,7 +196,7 @@ def PRINT(statement, lineno):
             parts[i] = part[1:-1]
         else:
             parts[i] = evalExpr(part)
-    ending = "" if len(statement) > 0 and statement[-1] in ',;' else None
+
     print(*parts, end=ending)
     return None
 

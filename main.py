@@ -15,7 +15,10 @@ if __name__ == '__main__':
 # LET statement
 
 # Working programs:
+# 3dplot.bas
 # batnum.bas
+# bunny.bas
+# diamond.bas
 # sinewave.bas
 # tictactoe1.bas
 # tictactoe2.bas - needs some print fixes, e.g. P$" "
