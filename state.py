@@ -19,6 +19,10 @@ def right(text, after):
 def syntaxError(message):
     raise Exception("?SYNTAX ERROR: " + message)
 
+def setTrace(val):
+    global trace
+    trace = val
+
 def evalExpr(expr):
 
     # Replace = with == (but preserve <= and >=), and <> with !=

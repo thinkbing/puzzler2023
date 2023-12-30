@@ -13,10 +13,11 @@ class BasicFunction():
         self.fvar = fvar
         self.expr = expr
     def __call__(self, value):
-        if self.fvar in variables: syntaxError(f"FUNCTION VARIABLE {self.fvar} ALREADY DEFINED")
-        variables[self.fvar] = value
+        saved = variables.get(self.fvar)        # Variable may exist already
+        variables[self.fvar] = value            # Set (or overwrite) value
         result = evalExpr(self.expr)
         del variables[self.fvar]
+        if saved: variables[self.fvar] = saved  # Restore original value, if any
         return result
 
 # Syntax: DEF function(variable)=expression
@@ -160,12 +161,13 @@ def NEXT(statement, lineno):
     for nextVar in nexts:
         while True:
             if len(forStack) == 0: syntaxError("NEXT WITHOUT FOR")
-            (loopline, variable, min, max, step) = forStack[-1]
+            (loopline, variable, startVal, endVal, step) = forStack[-1]
             if nextVar is None or nextVar == variable: break
             forStack.pop() # Technically shouldn't happen, but does?
         value = variables[variable]
         value = value + step
-        if value <= max:
+        done = value > endVal if endVal > startVal else value < endVal
+        if not done:
             assignVar(variable, value)
             return loopline
         else:
@@ -173,8 +175,7 @@ def NEXT(statement, lineno):
     return None
 
 def NOTRACE(statement, lineno):
-    global trace
-    trace = False
+    setTrace(False)
 
 # Syntax: PRINT ["message"|expr][;...]
 def PRINT(statement, lineno):
@@ -217,8 +218,7 @@ def RUN(statement, lineno):
     execProgram(startLine)
 
 def TRACE(statement, lineno):
-    global trace
-    trace = True
+    setTrace(True)
 
 import inspect, sys
 def makeCommands():
