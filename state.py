@@ -36,8 +36,16 @@ def evalExpr(expr):
     expr = re.sub(r"(\W)(AND)(\W)", r"\1and\3", expr)
     expr = re.sub(r"(\W)(OR)(\W)", r"\1or\3", expr)
 
-    # Convert variable names and functions ending in "$" to "_"
-    expr = re.sub(r"([A-Z]+[0-9]*)(\$)", r"\1_", expr)
+    # Convert variable names and functions ending in "$" to "Σ"
+    expr = re.sub(r"([A-Z]+[0-9]*)(\$)", r"\1Σ", expr)
+
+    # Convert array references to end in "Ξ" since non-array vars could have same names
+    # /(?<!pattern/ is "negative lookbehind": if the rest of the regex matches but
+    # /pattern/ is found immediately before that match, then the match fails
+    # This makes sure we'll match "B(12)" if array var "B" exists, but not "TAB(12)"
+    for var in variables:
+        if var[-1] == 'Ξ' and var[:-1]+"(" in expr:
+            expr = re.sub(fr"(?<![A-Z])({var[:-1]})\(", r"\1Ξ(", expr)
 
     globals = functions
     locals = variables
@@ -47,47 +55,29 @@ def evalExpr(expr):
     except Exception as err:
         syntaxError(str(err))
 
-def assignVar(variable, value):
-    if re.match(r"[A-Z]+[0-9]*\$?\(.*\)", variable):
-        # Assignment to array variable
-        start = variable.find('(')
-        arrayName = variable[0:start]
-        arrayName = arrayName.replace("$", "_")
-        arrayIndex = variable[start+1:-1]
-        if arrayName not in variables: syntaxError("UNKNOWN ARRAY " + variable)
-        arrayVar = variables[arrayName]
-        arrayIndex = evalExpr(arrayIndex)
-        arrayVar[arrayIndex] = value
-    else:
-        # Assignment to regular variable
-        variable = variable.replace("$", "_")
-        variables[variable] = value
-    if trace: print(variables)
 
 def execStatement(statement, lineno):
 
     if statement.startswith("REM"): return # No spaces etc. required after "REM"
 
-    # Match variable or command
-    match = re.match("[A-Z]+[0-9]*\$?", statement)
+    # Convert variable assignments to "LET"
+    # Examples: A=... BOO=... C12=... D(12)=... E(1+F(G))= FOO$=...
+    match = re.match(r"^[A-Z]+[0-9]*\$?(\(.+\))?\=", statement)
+    if match: statement = "LET " + statement
+
+    # Match command
+    match = re.match("[A-Z]+[0-9]*", statement)
     if not match: syntaxError(statement)
     word = match.group()
-    # TODO messy handling of array subscripts
-    if len(statement) > len(word) and statement[len(word)] == '(':
-        word = statement[0:statement.find('=')]
-    remain = right(statement, word)
 
-    if len(remain) > 0 and remain[0] == '=':
-        # variable=value: assign it
-        assignVar(word, evalExpr(remain[1:]))
-        return None
-    elif word in commands:
+    if word in commands:
         # Valid command: execute it
         command = commands[word]
-        return command(right(statement, word), lineno)
+        remain = right(statement, word)
+        return command(remain, lineno)
     elif not lineno:
         # Otherwise, if in immediate mode attempt to evaluate it
-        print(evalExpr(word))
+        print(evalExpr(statement))
     else:
         syntaxError(statement)
 
@@ -196,7 +186,7 @@ def storeLine(linenum, statement):
 
 def repl():
     while True:
-        line = input()
+        line = input("] ")
         try:
             statements = parseLine(line)
             for (linenum, statement) in statements:

@@ -35,17 +35,31 @@ def DEF(statement, lineno):
 
 # List subclass that works with BASIC syntax for subscripting with parentheses
 class BasicArray(list):
-    def __call__(self, value): return self[value]
+    def __call__(self, *args):
+        if len(args) == 1:
+            return self[args[0]]
+        elif len(args) == 2:
+            return self[args[0]][args[1]]
+        else:
+            syntaxError("3+ DIMENSIONAL ARRAYS NOT SUPPORTED")
 
-# Syntax: arrayname[size[,size...]]
+# Syntax: arrayname(max[,max...]) [,...]
+# The "max" parameter is the max array index, so array size = max+1
 def DIM(statement, lineno):
-    parts = re.split(",", statement)
+    parts = parts = splitUnquoted('"()', ",", statement)
     for part in parts:
-        variable = part[0:part.find('(')]
-        size = int(part[part.find('(')+1:-1]) + 1   # TODO not sure about that +1...
-        value = [0]*size
-        assignVar(variable, BasicArray(value))
-    # TODO if len(parts) > 2: syntaxError("MULTI-DIMENSIONAL ARRAYS NOT SUPPORTED")
+        variable = part[:part.find('(')] + "Ξ"
+        dims = part[part.find('(')+1:-1]
+        dims = dims.split(',')
+        dim1 = evalExpr(dims[0])
+        value = BasicArray([0]*(dim1+1))
+        if len(dims) > 1:
+            dim2 = evalExpr(dims[1])
+            for i in range(len(value)):
+                value[i] = BasicArray([0]*(dim2+1))
+        if len(dims) > 2: syntaxError("3+ DIMENSIONAL ARRAYS NOT SUPPORTED")
+        assignVar(variable, value)
+
 
 # Syntax: no arguments
 def END(statement, lineno):
@@ -56,14 +70,14 @@ def FOR(statement, lineno):
     parts = re.split(" |=", statement)
     if parts[2] != "TO": syntaxError("INVALID FOR LOOP: " + statement)
     variable = parts[0]
-    min = evalExpr(parts[1])
-    max = evalExpr(parts[3])
+    startVal = evalExpr(parts[1])
+    endVal = evalExpr(parts[3])
     step = 1
     if len(parts) == 6:
         if parts[4] != "STEP": syntaxError("INVALID FOR LOOP: " + statement)
         step = evalExpr(parts[5])
-    forStack.append((nextLine(lineno), variable, min, max, step))
-    assignVar(variable, min)
+    forStack.append((nextLine(lineno), variable, startVal, endVal, step))
+    assignVar(variable, startVal)
 
 # Syntax: GOSUB lineno
 def GOSUB(statement, lineno):
@@ -94,7 +108,7 @@ def IF(statement, lineno):
     if match:
         return int(match.group())   # Jump to numbered statement
     else:
-        return None # Proceed to statement(s) following IF
+        return None     # Proceed to statement(s) following IF
 
 # Syntax: INPUT ["message";]var[,...]]
 def INPUT(statement, lineno):
@@ -113,6 +127,60 @@ def INPUT(statement, lineno):
                 val = int(val)
         assignVar(part, val)
     return None
+
+
+def autoDim(arrayName, indexes):
+    # Apparently you can implicitly DIM an array? Annoying.
+    # This also means that the array may need to be auto-resized multiple times
+    # arrayVar = variables.get(arrayName)
+    # if arrayVar is None:
+    #     # Apparently you can implicitly DIM an array?
+    #     arrayVar = BasicArray([0] * (arrayIndex + 1))
+    #     variables[arrayName] = arrayVar
+    # elif len(arrayVar) <= arrayIndex:
+    #     # ...which then requires support for resizing
+    #     oldArray = arrayVar
+    #     arrayVar = BasicArray([0] * (arrayIndex + 1))
+    #     for i in range(len(oldArray)): arrayVar[i] = oldArray[i]
+    #     variables[arrayName] = arrayVar
+    # arrayVar[arrayIndex] = value
+    if arrayName not in variables:      # TODO
+        syntaxError("Undefined array")
+
+
+def assignArray(variable, value):
+    # Append "Ξ" to distinguish arrays from scalars with same name
+    start = variable.find('(')
+    arrayName = variable[:start].replace("$", "Σ") + "Ξ"
+    arrayExpr = variable[start + 1:-1]
+    # Compute index values
+    indexes = [evalExpr(part) for part in arrayExpr.split(',')]
+    autoDim(arrayName, indexes)     # Create or resize array if necessary
+    arrayVar = variables[arrayName]
+    if len(indexes) == 1:
+        arrayVar[indexes[0]] = value
+    elif len(indexes) == 2:
+        arrayVar[indexes[0]][indexes[1]] = value
+    else:
+        syntaxError("3+ DIMENSIONAL ARRAYS NOT SUPPORTED")
+
+def assignVar(variable, value):
+    if '(' in variable:
+        # Assignment to array
+        assignArray(variable, value)
+    else:
+        # Assignment to regular variable
+        variable = variable.replace("$", "Σ")
+        variables[variable] = value
+    if trace: print(variables)
+
+def LET(statement, lineno):
+    equal = statement.find('=')
+    variable = statement[:equal]
+    expr = statement[equal+1:]
+    value = evalExpr(expr)
+    assignVar(variable, value)
+
 
 # Syntax: LIST [fromline[,toline]]
 # Can't be used in deferred mode
@@ -174,10 +242,14 @@ def NEXT(statement, lineno):
             forStack.pop()
     return None
 
+
 def NOTRACE(statement, lineno):
     setTrace(False)
 
 # Syntax: PRINT ["message"|expr][;...]
+# TODO docs say that "," positions at tabstop and ";" concatenates without space
+# But ";"-separation seems to assume space will be added, based on how it's used
+# Can also run variables and strings together without delimiters TODO
 def PRINT(statement, lineno):
 
     ending = None   # Default newline

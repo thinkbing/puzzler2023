@@ -6,24 +6,24 @@ from math import sin, cos, tan, atan, exp, sqrt, log
 def ABS(val): return abs(val)
 def ASC(val): return ord(val)
 def ATN(val): return atan(val)
-def CHR_(val): return chr(val)
+def CHRΣ(val): return chr(val)
 def COS(val): return cos(val)
 def EXP(val): return exp(val)
 def INT(val): return int(val)
-def LEFT_(v1, v2): return v1[0:v2]
+def LEFTΣ(v1, v2): return v1[0:v2]
 def LEN(val): return len(val)
 def LOG(val): return log(val)
-def RIGHT_(v1, v2): return v1[-v2:]
+def RIGHTΣ(v1, v2): return v1[-v2:]
 def SGN(val): return val and (1,-1)[val<0]
 def SIN(val): return sin(val)
 def SQR(val): return sqrt(val)
-def STR_(val): return str(val)
+def STRΣ(val): return str(val)
 def TAB(val): return ' '*int(val)
 def TAN(val): return tan(val)
 def VAL(val): return float(val) if '.' in val else int(val)
 
 # Return substring from start (of specified length, or through end)
-def MID_(val, start, length=None):
+def MIDΣ(val, start, length=None):
     if length:
         return val[start-1:start-1+length]
     else:

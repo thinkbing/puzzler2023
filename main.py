@@ -16,6 +16,8 @@ if __name__ == '__main__':
 
 # Working programs:
 # 3dplot.bas
+# aceyducey.bas
+# amazing.bas
 # batnum.bas
 # bunny.bas
 # diamond.bas
