@@ -155,10 +155,11 @@ def parseLine(line):
         line = right(line, match.group())
 
     # Parse statements, assigning fractional line number for multi-statement lines
+    if line.startswith("REM"): return [(linenum, line)]
+    if line.startswith("IF"): line = re.sub(r"THEN(?![ ]+[0-9]+)", r"THEN:", line)
     if ':' not in line: return [(linenum, line)]
-    if line.startswith("IF"): line = line.replace("THEN", "THEN:")
     statements = splitUnquoted('"', ":", line)
-    return [(linenum + 0.1*i, s) for (i,s) in enumerate(statements)]
+    return [(linenum + 0.1*i if linenum else None, s) for (i,s) in enumerate(statements)]
 
 
 def storeLine(linenum, statement):

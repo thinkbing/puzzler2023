@@ -130,28 +130,15 @@ def INPUT(statement, lineno):
 
 
 def autoDim(arrayName, indexes):
-    # Apparently you can implicitly DIM an array? Annoying.
-    # This also means that the array may need to be auto-resized multiple times
-    # arrayVar = variables.get(arrayName)
-    # if arrayVar is None:
-    #     # Apparently you can implicitly DIM an array?
-    #     arrayVar = BasicArray([0] * (arrayIndex + 1))
-    #     variables[arrayName] = arrayVar
-    # elif len(arrayVar) <= arrayIndex:
-    #     # ...which then requires support for resizing
-    #     oldArray = arrayVar
-    #     arrayVar = BasicArray([0] * (arrayIndex + 1))
-    #     for i in range(len(oldArray)): arrayVar[i] = oldArray[i]
-    #     variables[arrayName] = arrayVar
-    # arrayVar[arrayIndex] = value
+    # Implicitly initialized arrays are treated as if they were DIM(11)
     if arrayName not in variables:      # TODO
-        syntaxError("Undefined array")
-
+        indexStr = ','.join(["11"]*len(indexes))
+        DIM(arrayName[:-1] + "(" + indexStr + ")", None)
 
 def assignArray(variable, value):
     # Append "Ξ" to distinguish arrays from scalars with same name
     start = variable.find('(')
-    arrayName = variable[:start].replace("$", "Σ") + "Ξ"
+    arrayName = variable[:start] + "Ξ"
     arrayExpr = variable[start + 1:-1]
     # Compute index values
     indexes = [evalExpr(part) for part in arrayExpr.split(',')]
@@ -165,12 +152,12 @@ def assignArray(variable, value):
         syntaxError("3+ DIMENSIONAL ARRAYS NOT SUPPORTED")
 
 def assignVar(variable, value):
+    variable = variable.replace("$", "Σ")
     if '(' in variable:
         # Assignment to array
         assignArray(variable, value)
     else:
         # Assignment to regular variable
-        variable = variable.replace("$", "Σ")
         variables[variable] = value
     if trace: print(variables)
 
@@ -246,30 +233,60 @@ def NEXT(statement, lineno):
 def NOTRACE(statement, lineno):
     setTrace(False)
 
-# Syntax: PRINT ["message"|expr][;...]
-# TODO docs say that "," positions at tabstop and ";" concatenates without space
-# But ";"-separation seems to assume space will be added, based on how it's used
-# Can also run variables and strings together without delimiters TODO
-def PRINT(statement, lineno):
 
-    ending = None   # Default newline
-    if len(statement) == 0:
-        print()
-        return None
-    elif statement[-1] in ',;':
-        ending = ""
-        statement = statement[0:-1]
-
-    parts = splitUnquoted('"()', ",;", statement)
-    for (i,part) in enumerate(parts):
-        if len(part) == 0:
-            pass
-        elif part.startswith("\""):
-            parts[i] = part[1:-1]
+def parsePrint(statement):
+    pos = 0
+    while pos < len(statement):
+        c = statement[pos]
+        if c in '",;' and pos > 0:
+            # Emit a token if we hit a delimiter
+            yield statement[:pos]
+            statement = statement[pos:]
+            pos = 0
+        if c in ',;':
+            # Emit a token for , or ; itself
+            yield c
+            statement = statement[pos+1:]
+            pos = 0
+        elif c == '"':
+            # Consume to end of quoted string and emit token including " chars
+            pos = pos + 1
+            while pos < len(statement) and statement[pos] != '"': pos = pos + 1
+            yield statement[:pos]
+            statement = statement[pos+1:]
+            pos = 0
+        elif c == '(':
+            # Skip to matching paren, ignoring delimiters within
+            parens = 1
+            while pos < len(statement) and parens > 0:
+                pos = pos + 1
+                if statement[pos] == '(': parens = parens + 1
+                elif statement[pos] == ')': parens = parens - 1
         else:
-            parts[i] = evalExpr(part)
+            pos = pos + 1
+    if len(statement) > 0: yield statement
 
-    print(*parts, end=ending)
+# Syntax: PRINT ["message"|expr][;...]
+# Separation by ; concatenates text without spaces (though some programs seem to assume it adds space)
+# Separation by , moves to next tab stop (16 spaces per stop)
+# Trailing , or ; suppresses newline
+def PRINT(statement, lineno):
+    length = 0
+    last = None
+    for part in parsePrint(statement):
+        if part[0] == '"':
+            text = part[1:]
+        elif part == ',':
+            text = ' ' * ((int(length/16)+1)*16 - length)
+        elif part == ';':
+            text = ""    # Some programs assume this is " "
+        else:
+            text = str(evalExpr(part))
+        length = length + len(text)
+        print(text, end="")
+        last = part
+    if last not in (",",";"):
+        print()         # Newline, unless ending in , or ;
     return None
 
 def READ(statement, lineno):
